@@ -1,0 +1,71 @@
+<!doctype html>
+<meta charset="UTF8">
+<html>
+  <head>
+    <title>Madison Tree Types</title>
+    <meta name = "viewport" content = "initial-scale = 1, user-scalable = no">
+    <script src="http://libs.cartocdn.com/cartodb.js/v3/cartodb.js"></script>
+    <link rel="stylesheet" href="http://cdnjs.cloudflare.com/ajax/libs/nvd3/1.1.15-beta/nv.d3.min.css">
+    <script src="http://cdnjs.cloudflare.com/ajax/libs/d3/3.5.2/d3.js" charset="utf-8"></script>
+    <script src="http://cdnjs.cloudflare.com/ajax/libs/nvd3/1.1.15-beta/nv.d3.js"></script>
+    <style>
+       #chart {
+          height: 400px;
+       }
+    </style>
+  </head>
+  <body>
+    <h1>Most Populous Trees in Madison</h1>
+    <p>
+    Data from: <a href="https://dkan.cartodb.com/u/dkan-admin/viz/6f588616-d19d-11e4-a931-7054d21a95e5/map">https://dkan.cartodb.com/u/dkan-admin/viz/6f588616-d19d-11e4-a931-7054d21a95e5/map</a>
+    </p>
+
+    <div id="chart"><svg></svg></div>
+
+    <iframe width='100%' height='520' frameborder='0' src='https://dkan.cartodb.com/u/dkan-admin/viz/dkan-admin.6f588616-d19d-11e4-a931-7054d21a95e5/embed_map?redirected=true' allowfullscreen webkitallowfullscreen mozallowfullscreen oallowfullscreen msallowfullscreen></iframe>
+
+  <script>
+
+    var sql = cartodb.SQL({ user: 'dkan-admin' });
+        sql.execute("SELECT species, count(species) as count FROM madison_trees group by (species) order by count desc limit 10").done(function(data) {
+            console.log(data)
+            var count = [];
+            var species = [];
+            var treeData = [{
+              key: "Number of Trees",
+              values: []
+            }];
+            var values = []
+            for (i in data.rows) {
+              values.push({label: data.rows[i].species, value: data.rows[i].count})
+            }
+            var treeData = [{
+              key: "Number of Trees",
+              values: values
+            }];
+
+          nv.addGraph(function() {
+            var chart = nv.models.discreteBarChart()
+                .x(function(d) { return d.label })    //Specify the data accessors.
+                .y(function(d) { return d.value })
+                .staggerLabels(true)    //Too many bars and not enough room? Try staggering labels.
+                .tooltips(false)        //Don't show tooltips
+                .showValues(true)       //...instead, show the bar value right on top of each bar.
+                .transitionDuration(350)
+                ;
+
+            d3.select('#chart svg')
+                .datum(treeData)
+                .call(chart);
+
+            nv.utils.windowResize(chart.update);
+
+            return chart;
+          });
+
+     })
+
+
+  </script>
+  </body>
+</html>
