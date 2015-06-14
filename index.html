@@ -4,11 +4,14 @@
   <head>
     <title>Madison Tree Types</title>
     <meta name = "viewport" content = "initial-scale = 1, user-scalable = no">
-    <script src="http://libs.cartocdn.com/cartodb.js/v3/cartodb.js"></script>
     <link rel="stylesheet" href="http://cdnjs.cloudflare.com/ajax/libs/nvd3/1.1.15-beta/nv.d3.min.css">
     <script src="http://cdnjs.cloudflare.com/ajax/libs/d3/3.5.2/d3.js" charset="utf-8"></script>
     <script src="http://cdnjs.cloudflare.com/ajax/libs/nvd3/1.1.15-beta/nv.d3.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/2.1.4/jquery.js"></script>
     <link href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.4/css/bootstrap.min.css" rel="stylesheet">
+
+     <link rel="stylesheet" href="http://libs.cartocdn.com/cartodb.js/v3/3.11/themes/css/cartodb.css" />
+     <script src="http://libs.cartocdn.com/cartodb.js/v3/3.11/cartodb.js"></script>
     <style>
        #chart {
           height: 400px;
@@ -18,20 +21,65 @@
          padding: 0 10px;
        }
        #chart-container {
-       overflow: auto;
-       padding-bottom: 10px;
+         overflow: auto;
+         padding-bottom: 10px;
        }
+       #map { width: 100%; height:750px;}
     </style>
+    <script>
+      function init() {
+        var map;
+        // initiate leaflet map
+        map = new L.Map('map', { 
+          center: [43.0667,-89.4000],
+          zoom: 14
+        });
+
+        L.tileLayer('https://dnv9my2eseobd.cloudfront.net/v3/cartodb.map-4xtxp73f/{z}/{x}/{y}.png', {
+          attribution: 'MapBox'
+        }).addTo(map);
+
+        var layerUrl = 'https://dkan.cartodb.com/api/v2/viz/6f588616-d19d-11e4-a931-7054d21a95e5/viz.json';
+
+        var sublayers = [];
+
+        cartodb.createLayer(map, layerUrl)
+          .addTo(map)
+          .on('done', function(layer) {
+            // change the query for the first layer
+            var subLayerOptions = {
+              sql: "SELECT * FROM madison_trees",
+              //cartocss: "#ne_10m_populated_p_2{marker-fill: #F84F40; marker-width: 8; marker-line-color: white; marker-line-width: 2; marker-clip: false; marker-allow-overlap: true;}"
+            }
+
+            var sublayer = layer.getSubLayer(0);
+
+            sublayer.set(subLayerOptions);
+
+            sublayers.push(sublayer);
+          }).on('error', function() {
+            //log the error
+          });
+
+        function updateQuery(tree) {
+          console.log(tree);
+          sublayers[0].set({
+            sql: "WHERE species = '" + tree + "'",
+            //cartocss: "#ne_10m_populated_p_2{[mapnik-geometry-type = 1]{text-name: [name]; text-face-name: 'DejaVu Sans Book'; text-size: 12; text-fill: #000; text-allow-overlap: false; text-halo-fill: #FFF; text-halo-radius: 2;} [mapnik-geometry-type = 2]{line-color: white; line-opacity: 0.5;} } "
+          });
+        }
+     }
+    </script>
   </head>
-  <body>
+  <body onload="init()">
     <h1>Most Populous Trees in Madison</h1>
     <p>
-    Data from: <a href="https://dkan.cartodb.com/u/dkan-admin/viz/6f588616-d19d-11e4-a931-7054d21a95e5/map">https://dkan.cartodb.com/u/dkan-admin/viz/6f588616-d19d-11e4-a931-7054d21a95e5/map</a>
+      Data from: <a href="https://dkan.cartodb.com/u/dkan-admin/viz/6f588616-d19d-11e4-a931-7054d21a95e5/map">https://dkan.cartodb.com/u/dkan-admin/viz/6f588616-d19d-11e4-a931-7054d21a95e5/map</a>
     </p>
-<div id="chart-container">
-    <div id="chart"><svg></svg></div>
-</div>
-    <iframe width='100%' height='520' frameborder='0' src='https://dkan.cartodb.com/u/dkan-admin/viz/dkan-admin.6f588616-d19d-11e4-a931-7054d21a95e5/embed_map?redirected=true' allowfullscreen webkitallowfullscreen mozallowfullscreen oallowfullscreen msallowfullscreen></iframe>
+    <div id="chart-container">
+      <div id="chart"><svg></svg></div>
+    </div>
+    <div id="map"></div>
 
   <script>
 
@@ -57,9 +105,9 @@
             var chart = nv.models.discreteBarChart()
                 .x(function(d) { return d.label })    //Specify the data accessors.
                 .y(function(d) { return d.value })
-                .staggerLabels(true)    //Too many bars and not enough room? Try staggering labels.
-                .tooltips(true)        //Don't show tooltips
-                .showValues(true)       //...instead, show the bar value right on top of each bar.
+                .staggerLabels(true)
+                .tooltips(true)
+                .showValues(true)
                 .transitionDuration(350)
                 ;
             chart.yAxis
@@ -70,10 +118,13 @@
             d3.select('#chart svg')
                 .datum(treeData)
                 .call(chart);
-
-
-
             nv.utils.windowResize(chart.update);
+
+            d3.selectAll("g rect")
+              .on("mouseover", function(d){
+                 console.log(d);
+                 updateQuery(d.label);
+               });
 
             return chart;
           });
