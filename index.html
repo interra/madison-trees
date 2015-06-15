@@ -74,7 +74,6 @@
           // change the query for the first layer
           var subLayerOptions = {
             sql: "SELECT * FROM madison_trees ",
-            //cartocss: "#ne_10m_populated_p_2{marker-fill: #F84F40; marker-width: 8; marker-line-color: white; marker-line-width: 2; marker-clip: false; marker-allow-overlap: true;}"
           }
 
           var sublayer = layer.getSubLayer(0);
@@ -105,6 +104,33 @@
                 .text(value.species)); 
             });
             $("#search-select").trigger("chosen:updated");
+          });
+      }
+      function stats(tree) {
+        var sql = cartodb.SQL({ user: 'dkan-admin' });
+          sql.execute("SELECT count(species) as count FROM madison_trees WHERE species = '" + tree + "'").done(function(data) {
+             treeCount = data.rows[0].count;
+             $("#tree-count").text(treeCount);
+             $(".tree-name").text(tree);
+             sql.execute("SELECT diameter_at_4_5_ft_in as diameter FROM madison_trees WHERE species = '" + tree + "'").done(function(data) {
+               var total = 0;
+               var largest = 0;
+               var smallest = 100;
+               $.each(data.rows, function(key, value) {   
+                 total = total + value.diameter;
+                 if (value.diameter > largest) {
+                   largest = value.diameter;
+                 }
+                 if (value.diameter < smallest) {
+                   smallest = value.diameter;
+                 }
+               });
+               var avg = total / treeCount;
+               $("#avg-diameter").text(avg);
+               $("#large-diameter").text(largest);
+               $("#small-diameter").text(smallest);
+
+              });
           });
       }
       function graph(page) {
@@ -149,7 +175,8 @@
 
               d3.selectAll("g rect")
                 .on("mouseover", function(d){
-                   updateQuery(d.label)
+                   updateQuery(d.label);
+                   stats(d.label);
                  })
                 .on("click", function(d){
                    alert(d.label);
@@ -165,6 +192,7 @@
          $(".chosen-select").chosen().change(function() {
              var num = +$(this).val()
              updateQuery(items[num]);
+             stats(items[num]);
          });
        });
        $("a.next").click(function() {
@@ -183,7 +211,7 @@
     <div class="container"><div class="row">
     <h1>Trees of Madison</h1>
     <div class="well well-sm">
-      Scroll over a tree species to see those trees on the map below. Click on a tree for more info about the tree. 
+      Hover over a tree species or use the search to see those trees on the map below.
     </div>
     <ul id="tabs" class="nav nav-tabs" data-tabs="tabs">
         <li class="active"><a href="#population" data-toggle="tab">Population</a></li>
@@ -191,10 +219,18 @@
     </ul>
     <div id="my-tab-content" class="tab-content">
         <div class="tab-pane" id="search">
-            <select class="chosen-select" id="search-select">
-               <option value=""></option>
-               <option value="United States">United States</option>
-            </select>
+            <div class="container">
+              <div class="row">
+                <br>
+                <p class="lead">
+                Select a tree species:
+                </p>
+                <select class="chosen-select" id="search-select">
+                   <option value=""></option>
+                   <option value="United States">United States</option>
+                </select>
+              </div>
+            </div>
         </div>
         <div class="tab-pane active" id="population">
           <div id="chart-container">
@@ -225,7 +261,15 @@
           <div id="map"></div>
         </div>
         <div class="tab-pane" id="stats">
-          stats
+          <p>
+          <h4>Total number of <span class="tree-name">tree<span>s</h4>
+          <div id="tree-count">Select a tree.</div>
+          <h4>Average Diameter</h4>
+          <div id="avg-diameter">Select a tree.</div>
+          <h4>Largest Diameter</h4>
+          <div id="large-diameter">Select a tree.</div>
+          <h4>Smallest Diameter</h4>
+          <div id="small-diameter">Select a tree.</div>
         </div>
     </div>
     <h2>About</h2>
