@@ -87,7 +87,7 @@
 
       function updateQuery(tree) {
         sublayers[0].set({
-          sql: "SELECT * FROM madison_trees WHERE species = '" + tree + "'",
+          sql: "SELECT * FROM madison_trees WHERE species = '" + safeTree(tree) + "'",
         });
         $("h2.tree-type").text(tree);
       }
@@ -106,13 +106,21 @@
             $("#search-select").trigger("chosen:updated");
           });
       }
+      function safeTree(tree) {
+        var split = tree.split("'");
+        var treeQuery = tree;
+        if (split[1]) {
+          treeQuery = split[0] + "''" + split[1] + "''";
+        }
+        return treeQuery;
+      }
       function stats(tree) {
         var sql = cartodb.SQL({ user: 'dkan-admin' });
-          sql.execute("SELECT count(species) as count FROM madison_trees WHERE species = '" + tree + "'").done(function(data) {
+          sql.execute("SELECT count(species) as count FROM madison_trees WHERE species = '" + safeTree(tree) + "'").done(function(data) {
              treeCount = data.rows[0].count;
              $("#tree-count").text(treeCount);
              $(".tree-name").text(tree);
-             sql.execute("SELECT diameter_at_4_5_ft_in as diameter FROM madison_trees WHERE species = '" + tree + "'").done(function(data) {
+             sql.execute("SELECT diameter_at_4_5_ft_in as diameter FROM madison_trees WHERE species = '" + safeTree(tree) + "'").done(function(data) {
                var total = 0;
                var largest = 0;
                var smallest = 100;
@@ -214,7 +222,7 @@
       Hover over a tree species or use the search to see those trees on the map below.
     </div>
     <ul id="tabs" class="nav nav-tabs" data-tabs="tabs">
-        <li class="active"><a href="#population" data-toggle="tab">Population</a></li>
+        <li class="active"><a href="#population" data-toggle="tab">Graph</a></li>
         <li><a href="#search" data-toggle="tab">Search</a></li>
     </ul>
     <div id="my-tab-content" class="tab-content">
@@ -234,6 +242,8 @@
         </div>
         <div class="tab-pane active" id="population">
           <div id="chart-container">
+            <br>
+            <p class="lead">Hover a tree species:</p>
             <nav>
               <ul class="pagination">
                 <li>
@@ -249,8 +259,11 @@
               </ul>
             </nav>
             <div id="chart"><svg></svg></div>
+            <br>
+            Number of trees by species in Madison.
         </div>
     </div>
+    <br>
     <h2 class="tree-type">All Trees</h2>
     <ul id="tabs" class="nav nav-tabs" data-tabs="tabs">
         <li class="active"><a href="#map-tab" data-toggle="tab">Map</a></li>
