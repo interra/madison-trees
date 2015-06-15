@@ -3,89 +3,113 @@
 <html>
   <head>
     <title>Madison Tree Types</title>
-    <meta name = "viewport" content = "initial-scale = 1, user-scalable = no">
     <link rel="stylesheet" href="http://cdnjs.cloudflare.com/ajax/libs/nvd3/1.1.15-beta/nv.d3.min.css">
     <script src="http://cdnjs.cloudflare.com/ajax/libs/d3/3.5.2/d3.js" charset="utf-8"></script>
     <script src="http://cdnjs.cloudflare.com/ajax/libs/nvd3/1.1.15-beta/nv.d3.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/2.1.4/jquery.js"></script>
     <link href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.4/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.4/js/bootstrap.min.js"></script>
+    <!-- CSS -->
+    <link rel="stylesheet" type="text/css" href="//cdnjs.cloudflare.com/ajax/libs/chosen/1.1.0/chosen.min.css">
+
+    <!-- JS -->
+    <script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/chosen/1.1.0/chosen.jquery.min.js"></script>
+
 
      <link rel="stylesheet" href="http://libs.cartocdn.com/cartodb.js/v3/3.11/themes/css/cartodb.css" />
      <script src="http://libs.cartocdn.com/cartodb.js/v3/3.11/cartodb.js"></script>
     <style>
        #chart {
-          height: 400px;
-          width: 15000px;
+          height: 200px;
+          width: 100%;
        }
        body {
          padding: 0 10px;
        }
-       #chart-container {
-         overflow: auto;
-         padding-bottom: 10px;
+       .tab-content {
+          width: 100%;
        }
-       #map { width: 100%; height:750px;}
+      .pagination {
+          margin: 5px 0 0 0;
+       }
+      .pagination>li>a, .pagination>li>span {
+        position: relative;
+        float: left;
+        padding: 4px 9px;
+        margin-left: -1px;
+        line-height: 1.42857143;
+        color: #337ab7;
+        text-decoration: none;
+        background-color: #fff;
+        border: 1px solid #ddd;
+       }
+      .pagination {
+        margin: 5px 0 0 0;
+        font-size: 12px;
+        padding: 0;
+        float: left;
+       }
+       #map { width: 100%; height:500px;}
     </style>
     <script>
-      function init() {
-        var map;
-        // initiate leaflet map
-        map = new L.Map('map', { 
-          center: [43.0667,-89.4000],
-          zoom: 14
+    var map;
+    function init() {
+      // initiate leaflet map
+      map = new L.Map('map', { 
+        center: [43.0667,-89.4000],
+        zoom: 12
+      });
+
+      L.tileLayer('http://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png', {
+        attribution: 'MapBox'
+      }).addTo(map);
+
+      var layerUrl = 'https://dkan.cartodb.com/api/v2/viz/6f588616-d19d-11e4-a931-7054d21a95e5/viz.json';
+
+      var sublayers = [];
+
+      cartodb.createLayer(map, layerUrl)
+        .addTo(map)
+        .on('done', function(layer) {
+          // change the query for the first layer
+          var subLayerOptions = {
+            sql: "SELECT * FROM madison_trees ",
+            //cartocss: "#ne_10m_populated_p_2{marker-fill: #F84F40; marker-width: 8; marker-line-color: white; marker-line-width: 2; marker-clip: false; marker-allow-overlap: true;}"
+          }
+
+          var sublayer = layer.getSubLayer(0);
+
+          sublayer.set(subLayerOptions);
+
+          sublayers.push(sublayer);
+        }).on('error', function() {
+          //log the error
         });
 
-        L.tileLayer('https://dnv9my2eseobd.cloudfront.net/v3/cartodb.map-4xtxp73f/{z}/{x}/{y}.png', {
-          attribution: 'MapBox'
-        }).addTo(map);
-
-        var layerUrl = 'https://dkan.cartodb.com/api/v2/viz/6f588616-d19d-11e4-a931-7054d21a95e5/viz.json';
-
-        var sublayers = [];
-
-        cartodb.createLayer(map, layerUrl)
-          .addTo(map)
-          .on('done', function(layer) {
-            // change the query for the first layer
-            var subLayerOptions = {
-              sql: "SELECT * FROM madison_trees",
-              //cartocss: "#ne_10m_populated_p_2{marker-fill: #F84F40; marker-width: 8; marker-line-color: white; marker-line-width: 2; marker-clip: false; marker-allow-overlap: true;}"
-            }
-
-            var sublayer = layer.getSubLayer(0);
-
-            sublayer.set(subLayerOptions);
-
-            sublayers.push(sublayer);
-          }).on('error', function() {
-            //log the error
+      function updateQuery(tree) {
+        sublayers[0].set({
+          sql: "SELECT * FROM madison_trees WHERE species = '" + tree + "'",
+        });
+        $("h2.tree-type").text(tree);
+      }
+      var page = 0;
+      function search() {
+        var sql = cartodb.SQL({ user: 'dkan-admin' });
+         sql.execute("SELECT DISTINCT species FROM madison_trees ORDER BY species ASC").done(function(data) {
+            items = [];
+            $.each(data.rows, function(key, value) {   
+              items.push(value.species);
+              $('#search-select')
+                .append($("<option></option>")
+                .attr("value",key)
+                .text(value.species)); 
+            });
+            $("#search-select").trigger("chosen:updated");
           });
-
-        function updateQuery(tree) {
-          console.log(tree);
-          sublayers[0].set({
-            sql: "WHERE species = '" + tree + "'",
-            //cartocss: "#ne_10m_populated_p_2{[mapnik-geometry-type = 1]{text-name: [name]; text-face-name: 'DejaVu Sans Book'; text-size: 12; text-fill: #000; text-allow-overlap: false; text-halo-fill: #FFF; text-halo-radius: 2;} [mapnik-geometry-type = 2]{line-color: white; line-opacity: 0.5;} } "
-          });
-        }
-     }
-    </script>
-  </head>
-  <body onload="init()">
-    <h1>Most Populous Trees in Madison</h1>
-    <p>
-      Data from: <a href="https://dkan.cartodb.com/u/dkan-admin/viz/6f588616-d19d-11e4-a931-7054d21a95e5/map">https://dkan.cartodb.com/u/dkan-admin/viz/6f588616-d19d-11e4-a931-7054d21a95e5/map</a>
-    </p>
-    <div id="chart-container">
-      <div id="chart"><svg></svg></div>
-    </div>
-    <div id="map"></div>
-
-  <script>
-
-    var sql = cartodb.SQL({ user: 'dkan-admin' });
-        sql.execute("SELECT species, count(species) as count FROM madison_trees group by (species) order by count desc").done(function(data) {
-            console.log(data)
+      }
+      function graph(page) {
+        var sql = cartodb.SQL({ user: 'dkan-admin' });
+          sql.execute("SELECT species, count(species) as count FROM madison_trees group by (species) order by count desc LIMIT 10 OFFSET " + page + "").done(function(data) {
             var count = [];
             var species = [];
             var treeData = [{
@@ -101,36 +125,116 @@
               values: values
             }];
 
-          var chart = nv.addGraph(function() {
-            var chart = nv.models.discreteBarChart()
-                .x(function(d) { return d.label })    //Specify the data accessors.
-                .y(function(d) { return d.value })
-                .staggerLabels(true)
-                .tooltips(true)
-                .showValues(true)
-                .transitionDuration(350)
-                ;
-            chart.yAxis
-                 .tickFormat(d3.format(',.0f'));
-            chart
-                 .valueFormat(d3.format(',.0f'));
+            nv.addGraph(function() {
+              var chart = nv.models.discreteBarChart()
+                  .x(function(d) { return d.label })    //Specify the data accessors.
+                  .y(function(d) { return d.value })
+                  .staggerLabels(true)
+                  .tooltips(false)
+                  .showValues(true)
+                  .transitionDuration(350)
+                  ;
+              if (page > 1) {
+                chart.color(['#8ca38b'])
+              }
+              chart.yAxis
+                   .tickFormat(d3.format(',.0f'));
+              chart
+                   .valueFormat(d3.format(',.0f'));
 
-            d3.select('#chart svg')
-                .datum(treeData)
-                .call(chart);
-            nv.utils.windowResize(chart.update);
+              d3.select('#chart svg')
+                  .datum(treeData)
+                  .call(chart);
+              nv.utils.windowResize(chart.update);
 
-            d3.selectAll("g rect")
-              .on("mouseover", function(d){
-                 console.log(d);
-                 updateQuery(d.label);
-               });
+              d3.selectAll("g rect")
+                .on("mouseover", function(d){
+                   updateQuery(d.label)
+                 })
+                .on("click", function(d){
+                   alert(d.label);
+                 });
+              return chart;
+            });
+         })
+       }
+       graph(page);
+       search();
+       $('#tabs').on('shown.bs.tab', function () {
+         $(".chosen-select").chosen();
+         $(".chosen-select").chosen().change(function() {
+             var num = +$(this).val()
+             updateQuery(items[num]);
+         });
+       });
+       $("a.next").click(function() {
+         page = page + 10;
+         graph(page);
+       });
+       $("a.prev").click(function() {
+         page = page - 10;
+         graph(page);
+       });
+     }
+    $('#tabs2').tab();
+    </script>
+  </head>
+  <body onload="init()">
+    <div class="container"><div class="row">
+    <h1>Trees of Madison</h1>
+    <div class="well well-sm">
+      Scroll over a tree species to see those trees on the map below. Click on a tree for more info about the tree. 
+    </div>
+    <ul id="tabs" class="nav nav-tabs" data-tabs="tabs">
+        <li class="active"><a href="#population" data-toggle="tab">Population</a></li>
+        <li><a href="#search" data-toggle="tab">Search</a></li>
+    </ul>
+    <div id="my-tab-content" class="tab-content">
+        <div class="tab-pane" id="search">
+            <select class="chosen-select" id="search-select">
+               <option value=""></option>
+               <option value="United States">United States</option>
+            </select>
+        </div>
+        <div class="tab-pane active" id="population">
+          <div id="chart-container">
+            <nav>
+              <ul class="pagination">
+                <li>
+                  <a class="prev" href="#" aria-label="Previous">
+                      <span aria-hidden="true">&laquo;</span>
+                    </a>
+                </li>
+                <li>
+                  <a class="next" href="#" aria-label="Next">
+                      <span aria-hidden="true">&raquo;</span>
+                    </a>
+                </li>
+              </ul>
+            </nav>
+            <div id="chart"><svg></svg></div>
+        </div>
+    </div>
+    <h2 class="tree-type">All Trees</h2>
+    <ul id="tabs" class="nav nav-tabs" data-tabs="tabs">
+        <li class="active"><a href="#map-tab" data-toggle="tab">Map</a></li>
+        <li><a href="#stats" data-toggle="tab">Stats</a></li>
+    </ul>
+    <div class="tab-content">
+        <div class="tab-pane active" id="map-tab">
+          <div id="map"></div>
+        </div>
+        <div class="tab-pane" id="stats">
+          stats
+        </div>
+    </div>
+    <h2>About</h2>
+    <div class="well well-sm">
+      The following visualization is built with data from: <a href="https://dkan.cartodb.com/u/dkan-admin/viz/6f588616-d19d-11e4-a931-7054d21a95e5/map">https://dkan.cartodb.com/u/dkan-admin/viz/6f588616-d19d-11e4-a931-7054d21a95e5/map</a>. 
+    </div>
+    </div></div>
 
-            return chart;
-          });
-
-     })
-
+  <script>
 
   </script>
   </body>
