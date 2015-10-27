@@ -55,13 +55,36 @@
        #map { width: 100%; height:500px;}
     </style>
     <script>
+
     var map;
     function init() {
+
+      var hash = window.location.hash.substr(1);
+      hash = hash.split(";");
+
+      var initialTree = getWindow("tree", hash);
+      var northEastLat = getWindow("northEastLat", hash) || '';
+      var northEastLon = getWindow("northEastLon", hash);
+      var southWestLat = getWindow("southWestLat", hash);
+      var southWestLon = getWindow("southWestLon", hash);
+
       // initiate leaflet map
-      map = new L.Map('map', { 
+      map = new L.Map('map', {
         center: [43.0667,-89.4000],
         zoom: 12
       });
+
+      map.on('moveend', function(e) {
+        setWindowBounds(map.getBounds());
+        setWindowZoom(map.getZoom());
+      });
+
+      if (northEastLon && northEastLat && southWestLon && southWestLat) {
+        map.fitBounds([
+          [southWestLat,southWestLon],
+          [northEastLat,northEastLon]
+        ]);
+      }
 
       L.tileLayer('http://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png', {
         attribution: 'MapBox'
@@ -75,8 +98,17 @@
         .addTo(map)
         .on('done', function(layer) {
           // change the query for the first layer
-          var subLayerOptions = {
-            sql: "SELECT * FROM madison_trees ",
+          if (initialTree) {
+            $("h2.tree-type").text(initialTree);
+            stats(initialTree);
+            var subLayerOptions = {
+              sql: "SELECT * FROM madison_trees WHERE species = '" + safeTree(initialTree) + "'",
+            }
+          }
+          else {
+            var subLayerOptions = {
+              sql: "SELECT * FROM madison_trees ",
+            }
           }
 
           var sublayer = layer.getSubLayer(0);
@@ -99,12 +131,12 @@
         var sql = cartodb.SQL({ user: 'dkan-admin' });
          sql.execute("SELECT DISTINCT species FROM madison_trees ORDER BY species ASC").done(function(data) {
             items = [];
-            $.each(data.rows, function(key, value) {   
+            $.each(data.rows, function(key, value) {
               items.push(value.species);
               $('#search-select')
                 .append($("<option></option>")
                 .attr("value",key)
-                .text(value.species)); 
+                .text(value.species));
             });
             $("#search-select").trigger("chosen:updated");
           });
@@ -127,7 +159,7 @@
                var total = 0;
                var largest = 0;
                var smallest = 100;
-               $.each(data.rows, function(key, value) {   
+               $.each(data.rows, function(key, value) {
                  total = total + value.diameter;
                  if (value.diameter > largest) {
                    largest = value.diameter;
@@ -188,6 +220,8 @@
                 .on("mouseover", function(d){
                    updateQuery(d.label);
                    stats(d.label);
+                   setWindowTree(d.label);
+
                  })
                 .on("click", function(d){
                    alert(d.label);
@@ -195,25 +229,82 @@
               return chart;
             });
          })
-       }
+      }
+      function setWindow(str, windowItem) {
+        var hash = window.location.hash.substr(1);
+        hash = hash.split(";");
+        var alreadySet = false;
+        // Replace an existing value of the same kind.
+        $.each(hash, function(i, item) {
+          item = item.split(":");
+          if (item[0] == str) {
+            hash[i] = str + ":" + windowItem;
+            alreadySet = true;
+          }
+        });
+        // Rejoin hash if overridden.
+        if (hash instanceof Array && hash[0] && alreadySet) {
+          hash = hash.join(";");
+        }
+        // Add to existing if hash has items but value doesn't already exist.
+        else if (!alreadySet && hash[0]) {
+          hash = hash.join(";") + ";" + str + ":" + windowItem;
+        }
+        else {
+          hash = str + ":" + windowItem;
+        }
+        window.location.hash = hash;
+      }
+      function setWindowTree(tree) {
+        setWindow("tree", tree);
+      }
+      function setWindowZoom(zoom) {
+        setWindow("zoom", zoom);
+      }
+      function setWindowBounds(bounds) {
+        setWindow("northEastLat", bounds._northEast.lat);
+        setWindow("northEastLon", bounds._northEast.lng);
+        setWindow("southWestLat", bounds._southWest.lat);
+        setWindow("southWestLon", bounds._southWest.lng);
+      }
+
+      function getWindowBounds(hash) {
+        hash = hash.split(";");
+      }
+      function getWindow(str, windowItem) {
+        var item = "";
+        $.each(hash, function(index, value) {
+          value = value.split(":");
+          if (value[0] == str) {
+            item = value[1];
+            return false;
+          }
+        });
+        return item;
+      }
+      function getWindowTree(hash) {
+        getWindow("tree", hash);
+      }
+
+      graph(page);
+      search();
+      $('#tabs').on('shown.bs.tab', function () {
+        $(".chosen-select").chosen();
+        $(".chosen-select").chosen().change(function() {
+          var num = +$(this).val();
+          setWindowTree(items[num]);
+          updateQuery(items[num]);
+          stats(items[num]);
+        });
+      });
+      $("a.next").click(function() {
+        page = page + 10;
+        graph(page);
+      });
+      $("a.prev").click(function() {
+       page = page - 10;
        graph(page);
-       search();
-       $('#tabs').on('shown.bs.tab', function () {
-         $(".chosen-select").chosen();
-         $(".chosen-select").chosen().change(function() {
-             var num = +$(this).val()
-             updateQuery(items[num]);
-             stats(items[num]);
-         });
-       });
-       $("a.next").click(function() {
-         page = page + 10;
-         graph(page);
-       });
-       $("a.prev").click(function() {
-         page = page - 10;
-         graph(page);
-       });
+      });
      }
     $('#tabs2').tab();
     </script>
@@ -290,7 +381,7 @@
     </div>
     <h2>About</h2>
     <div class="well well-sm">
-      The following visualization is built with data provided by the City of Madison. See <a href="https://dkan.cartodb.com/u/dkan-admin/viz/6f588616-d19d-11e4-a931-7054d21a95e5/map">original data</a>. These tree counts are only on public property and do not include some parks or trees on private land. 
+      The following visualization is built with data provided by the City of Madison. See <a href="https://dkan.cartodb.com/u/dkan-admin/viz/6f588616-d19d-11e4-a931-7054d21a95e5/map">original data</a>. These tree counts are only on public property and do not include some parks or trees on private land.
     </div>
     </div></div>
 
